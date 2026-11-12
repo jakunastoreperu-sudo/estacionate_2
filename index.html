@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14284B">
+<title>Estaciónate · Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --navy:#14284B; --navy-2:#1F3B68; --navy-soft:#E8EDF5;
+  --ink:#0F172A; --muted:#64748B; --muted-2:#94A3B8; --line:#E6E9EF;
+  --bg:#F5F6F8; --card:#FFFFFF;
+  --green:#16A34A; --green-soft:#E7F6EC;
+  --amber:#D97706; --amber-soft:#FEF3E2;
+  --red:#E11D48; --red-soft:#FDE8EE;
+  --radius:16px; --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 16px rgba(15,23,42,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#E9ECF1;color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+svg{display:block}
+
+/* ---------- Layout escritorio ---------- */
+.stage{min-height:100%;display:flex;align-items:center;justify-content:center;gap:64px;padding:32px}
+.about{max-width:380px}
+.about .brand{margin-bottom:28px}
+.about h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;margin-bottom:12px}
+.about p{color:var(--muted);line-height:1.6;font-size:15px}
+.about ul{list-style:none;margin:24px 0;display:grid;gap:10px}
+.about li{display:flex;gap:10px;align-items:center;font-size:14px;color:#334155}
+.about li i{width:6px;height:6px;border-radius:50%;background:var(--navy);flex:none}
+.about .hint{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:13px;color:var(--muted);line-height:1.55}
+.about .hint b{color:var(--ink)}
+.about .credit{margin-top:20px;font-size:12px;color:var(--muted-2)}
+
+.phone{width:390px;height:844px;background:#0B1220;border-radius:54px;padding:12px;box-shadow:0 30px 80px rgba(15,23,42,.25);flex:none;position:relative}
+.screen{position:relative;width:100%;height:100%;background:var(--bg);border-radius:43px;overflow:hidden;display:flex;flex-direction:column}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:32px;background:#0B1220;border-radius:20px;z-index:50}
+
+@media (max-width:900px){
+  .about{display:none}
+  .stage{padding:0;display:block;height:100%}
+  .phone{width:100%;height:100%;border-radius:0;padding:0;box-shadow:none;background:var(--bg)}
+  .screen{border-radius:0}
+  .notch{display:none}
+  .statusbar{display:none!important}
+}
+
+/* ---------- Barra de estado ---------- */
+.statusbar{height:48px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 6px;font-size:14px;font-weight:600;z-index:40;position:relative}
+.statusbar .icons{display:flex;gap:6px;align-items:center}
+.statusbar.on-map{position:absolute;top:0;left:0;right:0}
+
+/* ---------- Marca ---------- */
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--navy);display:grid;place-items:center;flex:none}
+.logo.lg{width:72px;height:72px;border-radius:20px}
+.wordmark{font-weight:800;font-size:20px;letter-spacing:-.02em;color:var(--navy)}
+.wordmark span{color:var(--muted-2);font-weight:700}
+
+/* ---------- Vistas ---------- */
+.views{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.view.active{display:flex;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.scroll{flex:1;overflow-y:auto;padding:0 20px 24px;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.topbar{display:flex;align-items:center;gap:12px;padding:8px 20px 14px;flex:none}
+.topbar h2{font-size:18px;font-weight:700;letter-spacing:-.01em;flex:1}
+.iconbtn{width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none}
+.title{font-size:24px;font-weight:800;letter-spacing:-.02em;padding:8px 20px 4px}
+.subtitle{color:var(--muted);font-size:14px;padding:0 20px 16px}
+
+/* ---------- Navegación inferior ---------- */
+.tabbar{flex:none;height:78px;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 8px 18px;z-index:30}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--muted-2)}
+.tabbar button.on{color:var(--navy)}
+.tabbar.hidden{display:none}
+
+/* ---------- Componentes ---------- */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:16px}
+.btn{height:52px;border-radius:14px;background:var(--navy);color:#fff;font-weight:700;font-size:15px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .1s,opacity .2s}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn.soft{background:var(--navy-soft);color:var(--navy)}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.chip{height:34px;padding:0 14px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:#334155}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px}
+.badge.verified{background:var(--navy-soft);color:var(--navy)}
+.badge.green{background:var(--green-soft);color:var(--green)}
+.badge.amber{background:var(--amber-soft);color:var(--amber)}
+.badge.red{background:var(--red-soft);color:var(--red)}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.xs{font-size:12px}
+.bold{font-weight:700}
+.sec-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:22px 0 10px}
+.divider{height:1px;background:var(--line);margin:14px 0}
+.stack{display:grid;gap:12px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--navy-soft);color:var(--navy);display:grid;place-items:center;font-weight:700;flex:none}
+
+/* ---------- Bienvenida ---------- */
+#v-welcome{background:#fff}
+.welcome{flex:1;display:flex;flex-direction:column;padding:40px 24px 28px}
+.welcome .hero{flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px}
+.welcome h1{font-size:32px;line-height:1.15;letter-spacing:-.03em}
+.welcome p{color:var(--muted);line-height:1.6}
+.role{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:16px;text-align:left;width:100%;transition:border-color .2s,background .2s}
+.role:hover{border-color:var(--navy);background:#FAFBFD}
+.role .ic{width:46px;height:46px;border-radius:12px;background:var(--navy-soft);display:grid;place-items:center;flex:none}
+.role b{display:block;font-size:15px}
+.role span{font-size:13px;color:var(--muted)}
+
+/* ---------- Mapa ---------- */
+#map{position:absolute;inset:0;background:#EEF1F5;z-index:1}
+.map-fallback{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:40px;color:var(--muted);font-size:14px}
+.map-top{position:absolute;top:52px;left:16px;right:16px;z-index:10;display:grid;gap:10px}
+@media (max-width:900px){.map-top{top:14px}}
+.search{height:50px;background:#fff;border-radius:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;padding:0 14px}
+.search input{border:0;outline:0;flex:1;font-size:15px;background:transparent}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chips .chip{box-shadow:0 1px 3px rgba(15,23,42,.08)}
+.ia-legend{background:#fff;border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;font-size:12px;display:none}
+.ia-legend.show{display:block}
+.ia-legend .bar{height:6px;border-radius:3px;background:linear-gradient(90deg,#E11D48,#F59E0B,#16A34A);margin:6px 0 4px}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:10;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -6px 24px rgba(15,23,42,.08);padding:10px 0 14px}
+.sheet .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+.sheet .head{padding:0 20px 10px}
+.hlist{display:flex;gap:12px;overflow-x:auto;padding:2px 20px 4px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.hlist::-webkit-scrollbar{display:none}
+.spot-card{flex:none;width:240px;scroll-snap-align:start;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;background:#fff}
+.spot-card .price{font-weight:800;font-size:16px}
+.spot-card .price small{font-weight:600;color:var(--muted);font-size:12px}
+.active-banner{margin:0 20px 10px;background:var(--navy);color:#fff;border-radius:14px;padding:12px 14px;display:none;align-items:center;gap:12px;width:calc(100% - 40px);text-align:left}
+.active-banner.show{display:flex}
+.fab-sos{position:absolute;right:16px;z-index:11;width:56px;height:56px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:13px;box-shadow:0 6px 18px rgba(225,29,72,.35);display:grid;place-items:center;letter-spacing:.04em}
+.fab-loc{position:absolute;right:16px;z-index:11;width:44px;height:44px;border-radius:12px;background:#fff;box-shadow:var(--shadow);display:grid;place-items:center}
+
+/* Marcadores */
+.pin{display:flex;flex-direction:column;align-items:center;transform:translateY(-4px)}
+.pin .p{background:#fff;color:var(--navy);font-weight:800;font-size:12px;padding:5px 9px;border-radius:999px;box-shadow:0 2px 8px rgba(15,23,42,.18);display:flex;align-items:center;gap:4px;white-space:nowrap;border:1.5px solid #fff}
+.pin.avail .p{background:var(--navy);color:#fff}
+.pin.full .p{background:#fff;color:var(--muted-2);border-color:var(--line)}
+.pin .tip{width:8px;height:8px;background:inherit;transform:rotate(45deg);margin-top:-5px}
+.pin.avail .tip{background:var(--navy)}
+.pin .tip{background:#fff}
+.me{width:18px;height:18px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 0 0 8px rgba(37,99,235,.18)}
+.leaflet-container{font-family:inherit}
+.leaflet-control-attribution{font-size:9px!important;opacity:.7}
+
+/* ---------- Detalle ---------- */
+.cover{height:200px;background:linear-gradient(135deg,#1F3B68,#14284B);position:relative;display:grid;place-items:center;flex:none}
+.cover .back{position:absolute;top:12px;left:16px}
+.cover .lines{position:absolute;inset:0;opacity:.12;background:repeating-linear-gradient(90deg,#fff 0 3px,transparent 3px 70px)}
+.feat{display:flex;flex-wrap:wrap;gap:8px}
+.feat span{font-size:12px;font-weight:600;padding:6px 10px;border-radius:10px;background:var(--bg);color:#334155;display:inline-flex;gap:6px;align-items:center}
+.stepper{display:flex;align-items:center;gap:14px}
+.stepper button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:18px;font-weight:700}
+.review{padding:12px 0;border-top:1px solid var(--line)}
+.review:first-child{border-top:0}
+.stars{color:#F59E0B;letter-spacing:1px;font-size:13px}
+.footer-cta{flex:none;background:#fff;border-top:1px solid var(--line);padding:12px 20px 18px;display:flex;align-items:center;gap:14px}
+.footer-cta .total{font-size:20px;font-weight:800}
+
+/* ---------- Pago ---------- */
+.pay{display:flex;align-items:center;gap:12px;padding:14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;width:100%;text-align:left}
+.pay.on{border-color:var(--navy);background:#FAFBFD}
+.pay .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);margin-left:auto;flex:none}
+.pay.on .radio{border:6px solid var(--navy)}
+.pay .mark{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff;flex:none}
+.contract{font-size:13px;color:#334155;line-height:1.6}
+.contract ol{padding-left:18px;display:grid;gap:6px;margin-top:8px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--navy);flex:none;margin-top:1px}
+.line-item{display:flex;justify-content:space-between;font-size:14px;padding:5px 0}
+.line-item.total{font-weight:800;font-size:16px;border-top:1px dashed var(--line);margin-top:6px;padding-top:12px}
+
+/* ---------- Ticket QR ---------- */
+.ticket{background:#fff;border-radius:22px;border:1px solid var(--line);overflow:hidden}
+.ticket .top{background:var(--navy);color:#fff;padding:18px 20px}
+.ticket .qr{padding:22px;display:grid;place-items:center;gap:10px;border-bottom:2px dashed var(--line);position:relative}
+.ticket canvas{width:190px;height:190px;image-rendering:pixelated}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;letter-spacing:.12em;font-size:15px}
+.timer{font-size:28px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px 20px}
+.kv div span{display:block;font-size:12px;color:var(--muted)}
+.kv div b{font-size:14px}
+
+/* ---------- Calificación ---------- */
+.bigstars{display:flex;gap:10px;justify-content:center;margin:12px 0}
+.bigstars button{font-size:38px;color:#E2E8F0;transition:transform .1s}
+.bigstars button.on{color:#F59E0B}
+.bigstars button:active{transform:scale(.9)}
+textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;resize:none;height:80px;outline:none;background:#fff}
+textarea:focus,.field input:focus,.field select:focus{border-color:var(--navy)}
+
+/* ---------- Recompensas ---------- */
+.points{background:var(--navy);color:#fff;border-radius:20px;padding:20px;position:relative;overflow:hidden}
+.points .num{font-size:36px;font-weight:800;letter-spacing:-.02em}
+.points .bar{height:6px;background:rgba(255,255,255,.18);border-radius:3px;margin:14px 0 6px;overflow:hidden}
+.points .bar i{display:block;height:100%;background:#fff;border-radius:3px}
+.points .ring{position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;border:22px solid rgba(255,255,255,.06)}
+.reward{display:flex;align-items:center;gap:14px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.reward .ic{width:44px;height:44px;border-radius:12px;background:var(--bg);display:grid;place-items:center;flex:none}
+.reward .cost{margin-left:auto;font-size:12px;font-weight:700;padding:8px 12px;border-radius:10px;background:var(--navy-soft);color:var(--navy);white-space:nowrap}
+.reward .cost.off{background:var(--bg);color:var(--muted-2)}
+
+/* ---------- Perfil ---------- */
+.list{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.list button,.list .li{display:flex;align-items:center;gap:12px;padding:14px 16px;width:100%;text-align:left;border-top:1px solid var(--line);font-size:14px;font-weight:500}
+.list > :first-child{border-top:0}
+.list .chev{margin-left:auto;color:var(--muted-2)}
+.premium-card{background:linear-gradient(135deg,#14284B,#2B4A7E);color:#fff;border-radius:18px;padding:18px;display:flex;align-items:center;gap:14px;width:100%;text-align:left}
+.stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat3 div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat3 b{display:block;font-size:18px}
+.stat3 span{font-size:11px;color:var(--muted)}
+.switch{width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;flex:none;transition:background .2s;margin-left:auto}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s}
+.switch.on{background:var(--green)}
+.switch.on::after{left:21px}
+
+/* ---------- Premium ---------- */
+.plan{border:1.5px solid var(--navy);border-radius:18px;padding:18px;background:#fff}
+.plan .price{font-size:34px;font-weight:800;letter-spacing:-.02em}
+.benefit{display:flex;gap:12px;align-items:flex-start;padding:10px 0}
+.benefit .ok{width:24px;height:24px;border-radius:50%;background:var(--green-soft);display:grid;place-items:center;flex:none}
+
+/* ---------- Anfitrión ---------- */
+.earn{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px}
+.earn .num{font-size:32px;font-weight:800;letter-spacing:-.02em}
+.bars{display:flex;align-items:flex-end;gap:8px;height:90px;margin-top:16px}
+.bars div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bars i{width:100%;border-radius:6px 6px 3px 3px;background:var(--navy-soft)}
+.bars div.today i{background:var(--navy)}
+.bars span{font-size:10px;color:var(--muted-2);font-weight:600}
+.progress{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--green);border-radius:4px;transition:width .4s}
+.checkitem{display:flex;gap:10px;align-items:center;font-size:14px;padding:6px 0}
+.checkitem .c{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--bg);border:1.5px solid var(--line)}
+.checkitem.done .c{background:var(--green);border-color:var(--green)}
+.field{display:grid;gap:6px;margin-bottom:14px}
+.field label{font-size:13px;font-weight:600;color:#334155}
+.field input,.field select{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 14px;background:#fff;outline:none}
+input[type=range]{width:100%;accent-color:var(--navy)}
+.photo-drop{border:1.5px dashed var(--line);border-radius:14px;height:96px;display:grid;place-items:center;color:var(--muted);font-size:13px;background:#fff;text-align:center}
+
+/* ---------- SOS ---------- */
+.overlay{position:absolute;inset:0;z-index:100;background:rgba(15,23,42,.55);display:none;align-items:flex-end;backdrop-filter:blur(2px)}
+.overlay.show{display:flex;animation:fade .2s}
+.modal{background:#fff;border-radius:26px 26px 0 0;width:100%;padding:22px 22px 28px;text-align:center}
+.sos-ring{width:170px;height:170px;margin:18px auto;position:relative;display:grid;place-items:center;user-select:none;-webkit-user-select:none;touch-action:none}
+.sos-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.sos-btn{width:130px;height:130px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:22px;letter-spacing:.06em;box-shadow:0 10px 30px rgba(225,29,72,.35);position:relative;z-index:1}
+.sos-btn:active{transform:scale(.97)}
+.pulse{animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,29,72,.45)}100%{box-shadow:0 0 0 28px rgba(225,29,72,0)}}
+
+/* ---------- Toast ---------- */
+.toast{position:absolute;left:20px;right:20px;top:60px;z-index:200;background:var(--ink);color:#fff;border-radius:14px;padding:14px 16px;font-size:14px;font-weight:600;display:flex;gap:10px;align-items:center;transform:translateY(-140%);opacity:0;transition:all .3s}
+.toast.show{transform:none;opacity:1}
+.spinner{width:20px;height:20px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <!-- Panel informativo (solo escritorio) -->
+  <aside class="about">
+    <div class="brand"><div class="logo" data-logo></div><div class="wordmark">Estacion<span>ate</span></div></div>
+    <h1>Encuentra dónde estacionar sin estrés.</h1>
+    <p>Prototipo funcional de la plataforma que conecta a conductores con cocheras privadas verificadas en Lima, con reserva en tiempo real, acceso por QR y seguridad activa.</p>
+    <ul>
+      <li><i></i>Mapa con predicción de disponibilidad por IA</li>
+      <li><i></i>Reserva, contrato digital y pago en la app</li>
+      <li><i></i>Acceso sin contacto mediante código QR</li>
+      <li><i></i>Botón de pánico conectado a Serenazgo</li>
+      <li><i></i>Sello “Espacio Verificado” y reputación cruzada</li>
+      <li><i></i>Puntos, recompensas y plan Premium</li>
+      <li><i></i>Panel del anfitrión para monetizar su cochera</li>
+    </ul>
+    <div class="hint"><b>Prueba la demo:</b> reserva una cochera desde el mapa, activa la capa IA, mantén presionado el botón SOS y cambia a modo anfitrión desde tu perfil.</div>
+    <div class="credit">Demo académica · Tesis MBA PUCP 2026 · Los datos mostrados son simulados.</div>
+  </aside>
+
+  <!-- Teléfono -->
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar" id="statusbar">
+        <span id="clock">9:41</span>
+        <div class="icons">
+          <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="1" fill="currentColor"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="17" height="8" rx="1.5" fill="currentColor"/><rect x="24" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".4"/></svg>
+        </div>
+      </div>
+
+      <div class="views" id="views">
+
+        <!-- ============ BIENVENIDA ============ -->
+        <section class="view active" id="v-welcome">
+          <div class="welcome">
+            <div class="hero">
+              <div class="logo lg" data-logo="lg"></div>
+              <h1>Estaciona seguro.<br><span style="color:var(--muted-2)">Sin vueltas.</span></h1>
+              <p>Reserva cocheras verificadas cerca de tu destino o gana dinero alquilando la tuya, con respaldo y seguridad.</p>
+            </div>
+            <div class="stack">
+              <button class="role" onclick="startAs('driver')">
+                <div class="ic" data-icon="car"></div>
+                <div><b>Soy conductor</b><span>Busco dónde estacionar</span></div>
+              </button>
+              <button class="role" onclick="startAs('host')">
+                <div class="ic" data-icon="home"></div>
+                <div><b>Soy anfitrión</b><span>Tengo una cochera para alquilar</span></div>
+              </button>
+              <p class="xs muted" style="text-align:center;margin-top:6px">Al continuar aceptas los Términos y la Política de Privacidad.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ MAPA (conductor) ============ -->
+        <section class="view" id="v-map">
+          <div id="map"></div>
+          <div class="map-top">
+            <div class="search">
+              <span data-icon="search" style="color:var(--muted)"></span>
+              <input id="searchInput" placeholder="¿A dónde vas?" oninput="filterSpots()">
+              <span class="avatar" style="width:32px;height:32px;font-size:12px" onclick="go('profile')">KR</span>
+            </div>
+            <div class="chips" id="filterChips">
+              <button class="chip on" data-f="all">Todas</button>
+              <button class="chip" data-f="ia"><span data-icon="spark" data-size="14"></span>Predicción IA</button>
+              <button class="chip" data-f="verified"><span data-icon="shield" data-size="14"></span>Verificadas</button>
+              <button class="chip" data-f="covered">Techadas</button>
+              <button class="chip" data-f="cheap">Hasta S/5</button>
+            </div>
+            <div class="ia-legend" id="iaLegend">
+              <div class="between"><b>Probabilidad de encontrar sitio · próximos 30 min</b></div>
+              <div class="bar"></div>
+              <div class="between muted"><span>Baja</span><span>Alta</span></div>
+            </div>
+          </div>
+          <button class="fab-loc" id="fabLoc" onclick="recenter()" data-icon="locate"></button>
+          <button class="fab-sos" id="fabSos" onclick="openSOS()">SOS</button>
+          <div class="sheet" id="sheet">
+            <div class="grab"></div>
+            <button class="active-banner" id="activeBanner" onclick="go('ticket')">
+              <span data-icon="qr"></span>
+              <div style="flex:1"><b style="font-size:14px">Reserva activa</b><div class="xs" style="opacity:.75" id="activeBannerTxt"></div></div>
+              <span data-icon="chev"></span>
+            </button>
+            <div class="head between">
+              <div><b id="sheetTitle">Cocheras cerca de ti</b><div class="xs muted" id="sheetSub"></div></div>
+            </div>
+            <div class="hlist" id="spotList"></div>
+          </div>
+        </section>
+
+        <!-- ============ DETALLE ============ -->
+        <section class="view" id="v-detail">
+          <div class="scroll" style="padding:0">
+            <div class="cover">
+              <div class="lines"></div>
+              <button class="iconbtn back" onclick="go('map')" data-icon="back"></button>
+              <div style="position:relative;text-align:center;color:#fff">
+                <div data-icon="garage" data-size="44" style="opacity:.9;display:inline-block"></div>
+              </div>
+            </div>
+            <div style="padding:18px 20px 24px" id="detailBody"></div>
+          </div>
+          <div class="footer-cta">
+            <div><div class="xs muted">Total</div><div class="total" id="detailTotal">S/ 0.00</div></div>
+            <button class="btn" style="flex:1" onclick="go('checkout')">Reservar</button>
+          </div>
+        </section>
+
+        <!-- ============ PAGO / CONTRATO ============ -->
+        <section class="view" id="v-checkout">
+          <div class="topbar"><button class="iconbtn" onclick="go('detail')" data-icon="back"></button><h2>Confirmar reserva</h2></div>
+          <div class="scroll" id="checkoutBody"></div>
+          <div class="footer-cta">
+            <button class="btn" id="payBtn" onclick="pay()" disabled>Pagar</button>
+          </div>
+        </section>
+
+        <!-- ============ TICKET QR ============ -->
+        <section class="view" id="v-ticket">
+          <div class="topbar"><button class="iconbtn" onclick="go('map')" data-icon="back"></button><h2>Tu acceso</h2><span class="badge green">Confirmada</span></div>
+          <div class="scroll" id="ticketBody"></div>
+        </section>
+
+        <!-- ============ CALIFICAR ============ -->
+        <section class="view" id="v-rate">
+          <div class="topbar"><button class="iconbtn" onclick="go('map')" data-icon="close"></button><h2>Califica tu experiencia</h2></div>
+          <div class="scroll" id="rateBody"></div>
+        </section>
+
+        <!-- ============ RESERVAS ============ -->
+        <section class="view" id="v-bookings">
+          <div class="title">Mis reservas</div>
+          <div class="subtitle">Activas e historial</div>
+          <div class="scroll" id="bookingsBody"></div>
+        </section>
+
+        <!-- ============ RECOMPENSAS ============ -->
+        <section class="view" id="v-rewards">
+          <div class="title">Recompensas</div>
+          <div class="subtitle">Suma puntos en cada reserva</div>
+          <div class="scroll" id="rewardsBody"></div>
+        </section>
+
+        <!-- ============ PERFIL ============ -->
+        <section class="view" id="v-profile">
+          <div class="title">Perfil</div>
+          <div class="subtitle" id="profileSub"></div>
+          <div class="scroll" id="profileBody"></div>
+        </section>
+
+        <!-- ============ PREMIUM ============ -->
+        <section class="view" id="v-premium">
+          <div class="topbar"><button class="iconbtn" onclick="go('profile')" data-icon="back"></button><h2>Estaciónate Premium</h2></div>
+          <div class="scroll" id="premiumBody"></div>
+        </section>
+
+        <!-- ============ ANFITRIÓN: PANEL ============ -->
+        <section class="view" id="v-host">
+          <div class="title">Hola, Luis</div>
+          <div class="subtitle">Así va tu cochera este mes</div>
+          <div class="scroll" id="hostBody"></div>
+        </section>
+
+        <!-- ============ ANFITRIÓN: COCHERAS ============ -->
+        <section class="view" id="v-hostSpaces">
+          <div class="title">Mis cocheras</div>
+          <div class="subtitle">Administra disponibilidad y precio</div>
+          <div class="scroll" id="hostSpacesBody"></div>
+        </section>
+
+        <!-- ============ ANFITRIÓN: PUBLICAR ============ -->
+        <section class="view" id="v-hostNew">
+          <div class="topbar"><button class="iconbtn" onclick="go('hostSpaces')" data-icon="back"></button><h2>Publicar cochera</h2></div>
+          <div class="scroll">
+            <div class="field"><label>Nombre del espacio</label><input id="nName" placeholder="Ej. Cochera techada Av. Brasil"></div>
+            <div class="field"><label>Dirección</label><input id="nAddr" placeholder="Calle, número, distrito"></div>
+            <div class="field"><label>Distrito</label>
+              <select id="nDist"><option>Jesús María</option><option>Pueblo Libre</option><option>San Isidro</option><option>Miraflores</option><option>Lince</option><option>San Miguel</option></select>
+            </div>
+            <div class="field"><label>Tipo de espacio</label>
+              <div class="chips" id="nType"><button class="chip on">Techada</button><button class="chip">Descubierta</button><button class="chip">Con portón</button></div>
+            </div>
+            <div class="field"><label>Vehículo admitido</label>
+              <div class="chips" id="nSize"><button class="chip on">Auto</button><button class="chip">SUV / Camioneta</button><button class="chip">Moto</button></div>
+            </div>
+            <div class="field">
+              <div class="between"><label>Precio por hora</label><b id="nPriceLbl">S/ 5.00</b></div>
+              <input type="range" id="nPrice" min="2" max="15" step="0.5" value="5" oninput="document.getElementById('nPriceLbl').textContent='S/ '+(+this.value).toFixed(2)">
+              <div class="xs muted">Precio sugerido por IA para tu zona: S/ 4.50 – S/ 6.00</div>
+            </div>
+            <div class="field"><label>Días disponibles</label>
+              <div class="chips" id="nDays"><button class="chip on">L</button><button class="chip on">M</button><button class="chip on">M</button><button class="chip on">J</button><button class="chip on">V</button><button class="chip">S</button><button class="chip">D</button></div>
+            </div>
+            <div class="field"><label>Fotos del espacio</label><div class="photo-drop"><div><span data-icon="camera" style="display:inline-block"></span><div>Agrega al menos 3 fotos</div></div></div></div>
+            <label class="check" style="margin:6px 0 18px"><input type="checkbox" id="nTerms" onchange="document.getElementById('pubBtn').disabled=!this.checked"><span>Declaro ser propietario o tener autorización para alquilar este espacio, y acepto el contrato marco de anfitrión.</span></label>
+            <button class="btn" id="pubBtn" disabled onclick="publishSpace()">Publicar cochera</button>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Navegación inferior -->
+      <nav class="tabbar hidden" id="tabbar"></nav>
+
+      <!-- SOS -->
+      <div class="overlay" id="sosOverlay" onclick="if(event.target===this)closeSOS()">
+        <div class="modal" id="sosModal"></div>
+      </div>
+
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* =========================================================
+   ÍCONOS (trazos simples, estilo minimalista)
+   ========================================================= */
+const ICONS = {
+  car:'<path d="M5 17h14M6 17v2M18 17v2M4 13l2-6h12l2 6v4H4z"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/>',
+  home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  map:'<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  ticket:'<path d="M3 8a2 2 0 0 0 0 4v0a2 2 0 0 1 0 4v2h18v-2a2 2 0 0 1 0-4 2 2 0 0 0 0-4V6H3z" transform="translate(0 -1)"/><path d="M14 5v14" stroke-dasharray="2 2"/>',
+  gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8S10 3 7.5 4.5 9 8 12 8zM12 8s2-5 4.5-3.5S15 8 12 8z"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',
+  close:'<path d="M6 6l12 12M18 6L6 18"/>',
+  chev:'<path d="M9 5l7 7-7 7"/>',
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  spark:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+  locate:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/>',
+  qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
+  garage:'<path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-8h10v8M7 16h10"/>',
+  star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  camera:'<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8 7l1.5-3h5L16 7"/>',
+  bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  crown:'<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>',
+  phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  check:'<path d="M5 12l5 5 9-10"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>',
+  card:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  doc:'<path d="M6 2h8l5 5v15H6z"/><path d="M14 2v5h5M9 13h7M9 17h5"/>',
+  swap:'<path d="M7 7h13l-4-4M17 17H4l4 4"/>',
+  logout:'<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
+  coffee:'<path d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M7 3v2M11 3v2"/>',
+  fuel:'<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M4 10h10M14 8l3 3v6a1.5 1.5 0 0 0 3 0V7l-3-3"/>',
+  wash:'<path d="M12 3s-5 6-5 10a5 5 0 0 0 10 0c0-4-5-10-5-10z"/>',
+  heart:'<path d="M12 20s-8-4.7-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15.3 12 20 12 20z"/>',
+  cam:'<path d="M3 7h12v10H3zM15 10l6-3v10l-6-3"/>',
+  light:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z"/>',
+  roof:'<path d="M2 12l10-7 10 7M5 10v10h14V10"/>'
+};
+function icon(name,size=20,sw=1.8){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||''}</svg>`;
+}
+function paintIcons(root=document){
+  root.querySelectorAll('[data-icon]').forEach(el=>{
+    if(el.dataset.painted) return;
+    el.innerHTML = icon(el.dataset.icon, +(el.dataset.size||20));
+    el.dataset.painted=1;
+  });
+  root.querySelectorAll('[data-logo]').forEach(el=>{
+    const s = el.dataset.logo==='lg'?40:20;
+    el.innerHTML = `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none"><path d="M6 4h12M6 12h8M6 20h12M6 4v16" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="18.5" cy="12" r="1.8" fill="#94A3B8"/></svg>`;
+  });
+}
+
+/* =========================================================
+   DATOS SIMULADOS
+   ========================================================= */
+const ME = [-12.0858, -77.0420];
+const SPOTS = [
+  {id:1,name:'Cochera techada Salaverry',host:'Rosa M.',dist:'Jesús María',addr:'Av. Salaverry 1450',lat:-12.0790,lng:-77.0470,price:5,rating:4.9,reviews:48,verified:true,free:2,covered:true,feat:['Techada','Cámaras','Portón eléctrico']},
+  {id:2,name:'Estacionamiento Campo de Marte',host:'Jorge P.',dist:'Jesús María',addr:'Jr. Nazca 210',lat:-12.0712,lng:-77.0428,price:4,rating:4.7,reviews:31,verified:true,free:1,covered:false,feat:['Descubierta','Vigilante','24 h']},
+  {id:3,name:'Cochera Residencial San Felipe',host:'Carmen L.',dist:'Jesús María',addr:'Res. San Felipe, Bl. 12',lat:-12.0812,lng:-77.0535,price:3.5,rating:4.6,reviews:19,verified:false,free:1,covered:true,feat:['Techada','Condominio cerrado']},
+  {id:4,name:'Parking Clínica aliada',host:'Convenio B2B',dist:'Jesús María',addr:'Av. Brasil 1100',lat:-12.0745,lng:-77.0505,price:6,rating:4.8,reviews:112,verified:true,free:7,covered:true,feat:['Techada','Cámaras','Convenio']},
+  {id:5,name:'Cochera Av. Arequipa',host:'Luis R.',dist:'Lince',addr:'Av. Arequipa 2340',lat:-12.0880,lng:-77.0355,price:5.5,rating:4.8,reviews:27,verified:true,free:1,covered:true,feat:['Techada','Cámaras']},
+  {id:6,name:'Garage Lince Centro',host:'Ana T.',dist:'Lince',addr:'Jr. Manuel Candamo 480',lat:-12.0845,lng:-77.0310,price:4.5,rating:4.4,reviews:12,verified:false,free:0,covered:false,feat:['Descubierta']},
+  {id:7,name:'Estacionamiento Centro Financiero',host:'Edificio Aliado',dist:'San Isidro',addr:'Calle Las Begonias 415',lat:-12.0960,lng:-77.0340,price:8,rating:4.9,reviews:203,verified:true,free:12,covered:true,feat:['Sótano','Cámaras','24 h','Convenio']},
+  {id:8,name:'Cochera El Olivar',host:'Patricia V.',dist:'San Isidro',addr:'Av. Conquistadores 320',lat:-12.0995,lng:-77.0385,price:7,rating:4.7,reviews:38,verified:true,free:1,covered:true,feat:['Techada','Portón']},
+  {id:9,name:'Cochera Parque Kennedy',host:'Miguel A.',dist:'Miraflores',addr:'Calle Schell 230',lat:-12.1205,lng:-77.0310,price:9,rating:4.6,reviews:76,verified:true,free:0,covered:true,feat:['Techada','Vigilante']},
+  {id:10,name:'Grifo aliado Pueblo Libre',host:'Convenio B2B',dist:'Pueblo Libre',addr:'Av. Sucre 1020',lat:-12.0765,lng:-77.0640,price:3,rating:4.5,reviews:58,verified:true,free:4,covered:false,feat:['Descubierta','Lavado','Convenio']},
+  {id:11,name:'Cochera Plaza San Miguel',host:'Rocío Q.',dist:'San Miguel',addr:'Av. La Marina 2050',lat:-12.0778,lng:-77.0840,price:4,rating:4.3,reviews:9,verified:false,free:2,covered:false,feat:['Descubierta']},
+  {id:12,name:'Cochera Av. Cuba',host:'Daniel F.',dist:'Jesús María',addr:'Av. Cuba 650',lat:-12.0838,lng:-77.0458,price:4.5,rating:4.8,reviews:22,verified:true,free:1,covered:true,feat:['Techada','Cámaras','Iluminada']},
+];
+const IA_ZONES = [
+  {lat:-12.0745,lng:-77.0470,r:650,p:.85},
+  {lat:-12.0845,lng:-77.0350,r:550,p:.45},
+  {lat:-12.0965,lng:-77.0355,r:600,p:.70},
+  {lat:-12.1205,lng:-77.0305,r:650,p:.15},
+  {lat:-12.0770,lng:-77.0640,r:600,p:.80},
+  {lat:-12.0800,lng:-77.0840,r:550,p:.60},
+  {lat:-12.0880,lng:-77.0470,r:450,p:.55},
+];
+const REVIEWS = [
+  {n:'Andrea C.',s:5,t:'Muy fácil entrar con el QR. Espacio limpio y seguro.'},
+  {n:'Renzo P.',s:5,t:'El anfitrión fue muy amable, llegué y el espacio estaba listo.'},
+  {n:'Lucía G.',s:4,t:'Buena ubicación, a dos cuadras de mi oficina.'},
+];
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const S = {
+  mode:'driver', view:'welcome', spotId:null, hours:2, when:'Ahora',
+  payMethod:'yape', contract:false, premium:false, points:1240,
+  active:null, history:[
+    {spot:SPOTS[4],date:'08 nov',hours:3,total:16.50,rated:5},
+    {spot:SPOTS[0],date:'02 nov',hours:2,total:10.00,rated:5},
+    {spot:SPOTS[9],date:'27 oct',hours:4,total:12.00,rated:4},
+  ],
+  filter:'all', rating:0, rateTags:new Set(), sosTimer:null,
+  hostSpaces:[
+    {id:101,name:'Cochera techada Av. Arequipa',dist:'Lince',price:5.5,on:true,bookings:23},
+  ],
+};
+
+/* =========================================================
+   NAVEGACIÓN
+   ========================================================= */
+const TABS = {
+  driver:[['map','map','Mapa'],['bookings','ticket','Reservas'],['rewards','gift','Recompensas'],['profile','user','Perfil']],
+  host:[['host','chart','Panel'],['hostSpaces','garage','Cocheras'],['profile','user','Perfil']],
+};
+const NO_TAB = ['welcome','detail','checkout','ticket','rate','premium','hostNew'];
+
+function go(view){
+  S.view = view;
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='v-'+view));
+  const renderers = {map:renderMap,detail:renderDetail,checkout:renderCheckout,ticket:renderTicket,rate:renderRate,
+    bookings:renderBookings,rewards:renderRewards,profile:renderProfile,premium:renderPremium,host:renderHost,hostSpaces:renderHostSpaces};
+  renderers[view] && renderers[view]();
+  renderTabs();
+  document.getElementById('statusbar').classList.toggle('on-map', view==='map');
+  const sc = document.querySelector('#v-'+view+' .scroll'); if(sc) sc.scrollTop=0;
+}
+function renderTabs(){
+  const tb = document.getElementById('tabbar');
+  tb.classList.toggle('hidden', NO_TAB.includes(S.view));
+  tb.innerHTML = TABS[S.mode].map(([v,ic,l])=>`<button class="${S.view===v?'on':''}" onclick="go('${v}')">${icon(ic,22)}<span>${l}</span></button>`).join('');
+}
+function startAs(mode){
+  S.mode = mode;
+  go(mode==='driver'?'map':'host');
+  toast(mode==='driver'?'Bienvenida, Karina':'Modo anfitrión activado', 'check');
+}
+function switchMode(){
+  S.mode = S.mode==='driver'?'host':'driver';
+  go(S.mode==='driver'?'map':'host');
+  toast(S.mode==='driver'?'Cambiaste a modo conductor':'Cambiaste a modo anfitrión','swap');
+}
+
+/* =========================================================
+   UTILIDADES
+   ========================================================= */
+const money = n => 'S/ '+(+n).toFixed(2);
+const stars = n => '★'.repeat(Math.round(n))+'☆'.repeat(5-Math.round(n));
+function distKm(a,b){
+  const R=6371,dLat=(b[0]-a[0])*Math.PI/180,dLng=(b[1]-a[1])*Math.PI/180;
+  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+const walkMin = s => Math.max(1,Math.round(distKm(ME,[s.lat,s.lng])*1000/80));
+const spotById = id => SPOTS.find(s=>s.id===id);
+let toastT;
+function toast(msg,ic='check',spin=false){
+  const t=document.getElementById('toast');
+  t.innerHTML=(spin?'<div class="spinner"></div>':icon(ic,20))+'<span>'+msg+'</span>';
+  t.classList.add('show'); clearTimeout(toastT);
+  if(!spin) toastT=setTimeout(()=>t.classList.remove('show'),2400);
+}
+function hideToast(){document.getElementById('toast').classList.remove('show')}
+function feeFor(sub){ return S.premium?0:Math.max(0.5, +(sub*0.08).toFixed(2)); }
+
+/* =========================================================
+   MAPA
+   ========================================================= */
+let map, markers=[], iaLayer, mapReady=false;
+function initMap(){
+  if(mapReady) return;
+  const el=document.getElementById('map');
+  if(typeof L==='undefined'){ el.innerHTML='<div class="map-fallback">No se pudo cargar el mapa. Revisa tu conexión a internet.</div>'; mapReady=true; return; }
+  map = L.map(el,{zoomControl:false,attributionControl:true}).setView([-12.0860,-77.0440],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+  }).addTo(map);
+  L.marker(ME,{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(map);
+  iaLayer = L.layerGroup(IA_ZONES.map(z=>{
+    const c = z.p>.66?'#16A34A':z.p>.4?'#F59E0B':'#E11D48';
+    return L.circle([z.lat,z.lng],{radius:z.r,color:c,weight:0,fillColor:c,fillOpacity:.18})
+      .bindTooltip(Math.round(z.p*100)+'% probabilidad',{direction:'top'});
+  }));
+  mapReady=true;
+}
+function spotPass(s){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase().trim();
+  if(q && !(s.name+' '+s.dist+' '+s.addr).toLowerCase().includes(q)) return false;
+  if(S.filter==='verified') return s.verified;
+  if(S.filter==='covered') return s.covered;
+  if(S.filter==='cheap') return s.price<=5;
+  return true;
+}
+function drawMarkers(){
+  if(!map) return;
+  markers.forEach(m=>m.remove()); markers=[];
+  SPOTS.filter(spotPass).forEach(s=>{
+    const cls = s.free>0?'avail':'full';
+    const html = `<div class="pin ${cls}"><div class="p">${s.verified?icon('shield',12,2.4):''}S/${s.price%1?s.price.toFixed(1):s.price}</div><div class="tip"></div></div>`;
+    const m = L.marker([s.lat,s.lng],{icon:L.divIcon({className:'',html,iconSize:[60,34],iconAnchor:[30,34]})}).addTo(map);
+    m.on('click',()=>openSpot(s.id));
+    markers.push(m);
+  });
+}
+function filterSpots(){ drawMarkers(); renderSpotList(); }
+function renderSpotList(){
+  const list = SPOTS.filter(spotPass).sort((a,b)=>walkMin(a)-walkMin(b));
+  document.getElementById('sheetSub').textContent = `${list.filter(s=>s.free>0).length} disponibles ahora · actualizado hace 1 min`;
+  document.getElementById('spotList').innerHTML = list.length? list.map(s=>`
+    <button class="spot-card" onclick="openSpot(${s.id})">
+      <div class="between" style="margin-bottom:6px">
+        ${s.verified?`<span class="badge verified">${icon('shield',12,2.2)}Verificado</span>`:`<span class="badge" style="background:var(--bg);color:var(--muted)">Nuevo</span>`}
+        ${s.free>0?`<span class="badge green">${s.free} libre${s.free>1?'s':''}</span>`:`<span class="badge red">Lleno</span>`}
+      </div>
+      <div class="bold" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+      <div class="xs muted" style="margin:2px 0 8px">${s.dist} · ${walkMin(s)} min a pie · ★ ${s.rating}</div>
+      <div class="price">${money(s.price)} <small>/ hora</small></div>
+    </button>`).join('') : '<div class="empty" style="padding:16px">No hay cocheras con ese filtro.</div>';
+}
+function renderMap(){
+  initMap();
+  setTimeout(()=>{ if(map){ map.invalidateSize(); drawMarkers(); } positionFabs(); },30);
+  renderSpotList();
+  const b=document.getElementById('activeBanner');
+  b.classList.toggle('show',!!S.active);
+  if(S.active) document.getElementById('activeBannerTxt').textContent = S.active.spot.name+' · '+S.active.code;
+}
+function positionFabs(){
+  const h=document.getElementById('sheet').offsetHeight;
+  document.getElementById('fabSos').style.bottom=(h+14)+'px';
+  document.getElementById('fabLoc').style.bottom=(h+80)+'px';
+}
+function recenter(){ map && map.flyTo(ME,15,{duration:.6}); }
+document.getElementById('filterChips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c) return;
+  const f=c.dataset.f;
+  if(f==='ia'){
+    c.classList.toggle('on');
+    const on=c.classList.contains('on');
+    document.getElementById('iaLegend').classList.toggle('show',on);
+    if(map){ on?iaLayer.addTo(map):iaLayer.remove(); }
+    if(on) toast('IA: mayor probabilidad en Jesús María y Pueblo Libre','spark');
+    return;
+  }
+  document.querySelectorAll('#filterChips .chip:not([data-f=ia])').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on'); S.filter=f; filterSpots();
+});
+
+/* =========================================================
+   DETALLE DE COCHERA
+   ========================================================= */
+function openSpot(id){ S.spotId=id; S.hours=2; S.when='Ahora'; go('detail'); }
+function renderDetail(){
+  const s=spotById(S.spotId); if(!s) return;
+  const sub=s.price*S.hours, fee=feeFor(sub);
+  document.getElementById('detailTotal').textContent = money(sub+fee);
+  const featIcon = f=>({Techada:'roof',Cámaras:'cam',Vigilante:'shield','24 h':'clock',Iluminada:'light',Lavado:'wash',Convenio:'bolt'}[f]||'check');
+  document.getElementById('detailBody').innerHTML = `
+    <div class="row" style="gap:8px;margin-bottom:10px">
+      ${s.verified?`<span class="badge verified">${icon('shield',12,2.2)}Espacio Verificado</span>`:''}
+      ${s.free>0?`<span class="badge green">${s.free} espacio${s.free>1?'s':''} libre${s.free>1?'s':''}</span>`:`<span class="badge red">Sin espacios ahora</span>`}
+    </div>
+    <h2 style="font-size:22px;letter-spacing:-.02em">${s.name}</h2>
+    <div class="small muted" style="margin:4px 0 14px">${s.addr}, ${s.dist} · ${walkMin(s)} min a pie</div>
+    <div class="row" style="gap:20px;margin-bottom:16px">
+      <div><b style="font-size:18px">${money(s.price)}</b><div class="xs muted">por hora</div></div>
+      <div><b style="font-size:18px">★ ${s.rating}</b><div class="xs muted">${s.reviews} reseñas</div></div>
+      <div><b style="font-size:18px">${s.free>0?'92%':'—'}</b><div class="xs muted">Confianza IA</div></div>
+    </div>
+    <div class="feat">${s.feat.map(f=>`<span>${icon(featIcon(f),14)}${f}</span>`).join('')}</div>
+
+    <div class="sec-title">Tu reserva</div>
+    <div class="card">
+      <div class="small bold" style="margin-bottom:8px">Llegada</div>
+      <div class="chips" id="whenChips">${['Ahora','En 30 min','En 1 h','Programar'].map(w=>`<button class="chip ${S.when===w?'on':''}" onclick="S.when='${w}';renderDetail()">${w}</button>`).join('')}</div>
+      <div class="divider"></div>
+      <div class="between">
+        <div><div class="small bold">Duración</div><div class="xs muted">Puedes extender desde la app</div></div>
+        <div class="stepper"><button onclick="S.hours=Math.max(1,S.hours-1);renderDetail()">−</button><b style="min-width:34px;text-align:center">${S.hours} h</b><button onclick="S.hours=Math.min(12,S.hours+1);renderDetail()">+</button></div>
+      </div>
+    </div>
+
+    <div class="sec-title">Anfitrión</div>
+    <div class="card row">
+      <div class="avatar">${s.host.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      <div style="flex:1"><b>${s.host}</b><div class="xs muted">${s.verified?'Identidad validada · Responde en 5 min':'Identidad en validación'}</div></div>
+      ${s.verified?`<span style="color:var(--navy)">${icon('shield',22)}</span>`:''}
+    </div>
+
+    <div class="sec-title">Reseñas</div>
+    <div class="card" style="padding:4px 16px">
+      ${REVIEWS.map(r=>`<div class="review"><div class="between"><b class="small">${r.n}</b><span class="stars">${stars(r.s)}</span></div><div class="small muted" style="margin-top:4px">${r.t}</div></div>`).join('')}
+    </div>
+  `;
+  const btn=document.querySelector('#v-detail .footer-cta .btn');
+  btn.disabled = s.free===0; btn.textContent = s.free===0?'Sin disponibilidad':'Reservar';
+}
+
+/* =========================================================
+   CHECKOUT + CONTRATO DIGITAL
+   ========================================================= */
+function renderCheckout(){
+  const s=spotById(S.spotId); const sub=s.price*S.hours, fee=feeFor(sub);
+  S.contract=false;
+  const methods=[['yape','Yape','#6B21A8'],['plin','Plin','#0891B2'],['card','Tarjeta •••• 4821','#14284B']];
+  document.getElementById('checkoutBody').innerHTML = `
+    <div class="card row" style="margin-bottom:4px">
+      <div class="avatar" style="border-radius:12px">${icon('garage',22)}</div>
+      <div style="flex:1;min-width:0"><b class="small">${s.name}</b><div class="xs muted">${S.when} · ${S.hours} h · ${s.dist}</div></div>
+    </div>
+
+    <div class="sec-title">Resumen</div>
+    <div class="card">
+      <div class="line-item"><span class="muted">Estacionamiento (${S.hours} h × ${money(s.price)})</span><span>${money(sub)}</span></div>
+      <div class="line-item"><span class="muted">Tarifa de servicio y seguro</span><span>${S.premium?'<s class="muted">'+money(Math.max(.5,sub*.08))+'</s> S/ 0.00':money(fee)}</span></div>
+      <div class="line-item"><span class="muted">Puntos a ganar</span><span style="color:var(--green);font-weight:700">+${Math.round(sub*10)*(S.premium?2:1)} pts</span></div>
+      <div class="line-item total"><span>Total</span><span>${money(sub+fee)}</span></div>
+    </div>
+
+    <div class="sec-title">Método de pago</div>
+    <div class="stack" id="payMethods">
+      ${methods.map(([k,l,c])=>`<button class="pay ${S.payMethod===k?'on':''}" data-k="${k}"><div class="mark" style="background:${c}">${k==='card'?icon('card',18):l[0]}</div><b class="small">${l}</b><span class="radio"></span></button>`).join('')}
+    </div>
+
+    <div class="sec-title">Contrato digital</div>
+    <div class="card contract">
+      <div class="row" style="gap:8px;margin-bottom:4px">${icon('doc',18)}<b>Acuerdo de uso temporal de espacio</b></div>
+      <ol>
+        <li>El anfitrión garantiza el acceso al espacio durante el horario reservado.</li>
+        <li>El conductor se compromete a respetar el horario y las normas del inmueble.</li>
+        <li>Estaciónate actúa como intermediario y custodia el pago hasta finalizar el servicio.</li>
+        <li>Cobertura ante daños según la póliza vigente de la plataforma.</li>
+        <li>Cancelación gratuita hasta 15 minutos antes de la llegada.</li>
+      </ol>
+      <div class="divider"></div>
+      <label class="check"><input type="checkbox" id="contractChk"><span>Acepto el contrato y autorizo el cobro. Firma digital vinculada a mi DNI validado.</span></label>
+    </div>
+  `;
+  const btn=document.getElementById('payBtn');
+  btn.textContent='Pagar '+money(sub+fee); btn.disabled=true;
+  document.getElementById('contractChk').onchange=e=>{btn.disabled=!e.target.checked};
+  document.getElementById('payMethods').onclick=e=>{
+    const p=e.target.closest('.pay'); if(!p) return;
+    S.payMethod=p.dataset.k;
+    document.querySelectorAll('#payMethods .pay').forEach(x=>x.classList.toggle('on',x===p));
+  };
+}
+function pay(){
+  const s=spotById(S.spotId); const sub=s.price*S.hours, fee=feeFor(sub);
+  const btn=document.getElementById('payBtn'); btn.disabled=true; btn.innerHTML='<div class="spinner"></div>Procesando pago';
+  setTimeout(()=>{
+    const now=new Date(); const start=new Date(now.getTime()+(S.when==='En 30 min'?30:S.when==='En 1 h'?60:0)*60000);
+    S.active={spot:s,hours:S.hours,total:sub+fee,code:'EST-'+Math.floor(1000+Math.random()*9000),start,end:new Date(start.getTime()+S.hours*3600000),pts:Math.round(sub*10)*(S.premium?2:1)};
+    s.free=Math.max(0,s.free-1);
+    go('ticket');
+    toast('Pago aprobado · Reserva confirmada','check');
+  },1300);
+}
+
+/* =========================================================
+   TICKET + QR
+   ========================================================= */
+let ticketInt;
+function drawQR(canvas,text){
+  const N=29, ctx=canvas.getContext('2d'); canvas.width=N; canvas.height=N;
+  let seed=[...text].reduce((a,c)=>a*31+c.charCodeAt(0),7)>>>0;
+  const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,N,N); ctx.fillStyle='#0F172A';
+  const finder=(x,y)=>{ctx.fillRect(x,y,7,7);ctx.fillStyle='#fff';ctx.fillRect(x+1,y+1,5,5);ctx.fillStyle='#0F172A';ctx.fillRect(x+2,y+2,3,3);};
+  const inFinder=(x,y)=>(x<8&&y<8)||(x>N-9&&y<8)||(x<8&&y>N-9);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ if(!inFinder(x,y)&&rnd()>.52) ctx.fillRect(x,y,1,1); }
+  finder(0,0);finder(N-7,0);finder(0,N-7);
+}
+const hhmm = d => d.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+function renderTicket(){
+  const a=S.active; const body=document.getElementById('ticketBody');
+  if(!a){ body.innerHTML='<div class="empty">No tienes una reserva activa.</div>'; return; }
+  body.innerHTML=`
+    <div class="ticket">
+      <div class="top"><div class="xs" style="opacity:.7">Cochera</div><b style="font-size:17px">${a.spot.name}</b><div class="xs" style="opacity:.7;margin-top:2px">${a.spot.addr}, ${a.spot.dist}</div></div>
+      <div class="qr">
+        <canvas id="qrCanvas"></canvas>
+        <div class="code">${a.code}</div>
+        <div class="xs muted">Muestra este código al llegar o escanéalo en el lector del portón</div>
+      </div>
+      <div style="text-align:center;padding:16px 20px 0"><div class="xs muted">Tiempo restante</div><div class="timer" id="timer">--:--:--</div></div>
+      <div class="kv">
+        <div><span>Ingreso</span><b>${hhmm(a.start)}</b></div>
+        <div><span>Salida</span><b>${hhmm(a.end)}</b></div>
+        <div><span>Anfitrión</span><b>${a.spot.host}</b></div>
+        <div><span>Pagado</span><b>${money(a.total)}</b></div>
+      </div>
+    </div>
+    <div class="stack" style="margin-top:16px">
+      <a class="btn ghost" style="text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${a.spot.lat},${a.spot.lng}">${icon('pin',18)}Cómo llegar</a>
+      <div class="row" style="gap:10px">
+        <button class="btn soft" onclick="extend()">${icon('plus',18)}Extender 1 h</button>
+        <button class="btn soft" onclick="openSOS()" style="color:var(--red);background:var(--red-soft)">${icon('shield',18)}SOS</button>
+      </div>
+      <button class="btn" onclick="finishParking()">Finalizar estacionamiento</button>
+    </div>
+  `;
+  drawQR(document.getElementById('qrCanvas'),a.code);
+  clearInterval(ticketInt);
+  const tick=()=>{const el=document.getElementById('timer'); if(!el||!S.active) return clearInterval(ticketInt);
+    let ms=Math.max(0,S.active.end-new Date()); const h=Math.floor(ms/3.6e6),m=Math.floor(ms%3.6e6/6e4),s=Math.floor(ms%6e4/1e3);
+    el.textContent=[h,m,s].map(n=>String(n).padStart(2,'0')).join(':');};
+  tick(); ticketInt=setInterval(tick,1000);
+}
+function extend(){
+  const a=S.active; a.end=new Date(a.end.getTime()+3600000); a.hours++; a.total+=a.spot.price;
+  renderTicket(); toast('Extendiste 1 hora · '+money(a.spot.price),'clock');
+}
+function finishParking(){ S.rating=0; S.rateTags=new Set(); go('rate'); }
+
+/* =========================================================
+   CALIFICACIÓN
+   ========================================================= */
+function renderRate(){
+  const a=S.active||{spot:spotById(S.spotId)};
+  const tags=['Fácil acceso','Espacio limpio','Zona segura','Anfitrión amable','Buena iluminación','Bien señalizado'];
+  document.getElementById('rateBody').innerHTML=`
+    <div style="text-align:center;padding:10px 0 4px">
+      <div class="avatar" style="width:64px;height:64px;margin:0 auto 10px;font-size:20px">${a.spot.host.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
+      <b style="font-size:17px">¿Cómo te fue en ${a.spot.name}?</b>
+      <div class="small muted" style="margin-top:4px">Tu calificación ayuda a mantener una comunidad confiable</div>
+    </div>
+    <div class="bigstars" id="bigStars">${[1,2,3,4,5].map(i=>`<button class="${i<=S.rating?'on':''}" onclick="S.rating=${i};renderRate()">★</button>`).join('')}</div>
+    <div class="chips" style="flex-wrap:wrap;justify-content:center;margin-bottom:16px">${tags.map(t=>`<button class="chip ${S.rateTags.has(t)?'on':''}" onclick="S.rateTags.has('${t}')?S.rateTags.delete('${t}'):S.rateTags.add('${t}');renderRate()">${t}</button>`).join('')}</div>
+    <textarea placeholder="Cuéntanos algo más (opcional)"></textarea>
+    <button class="btn" style="margin-top:16px" ${S.rating?'':'disabled'} onclick="submitRating()">Enviar calificación</button>
+  `;
+}
+function submitRating(){
+  const a=S.active;
+  if(a){
+    S.points+=a.pts+50;
+    S.history.unshift({spot:a.spot,date:'Hoy',hours:a.hours,total:a.total,rated:S.rating});
+    a.spot.free++;
+    S.active=null; clearInterval(ticketInt);
+    go('map'); toast(`¡Gracias! Ganaste ${a.pts+50} puntos`,'gift');
+  } else go('map');
+}
+
+/* =========================================================
+   RESERVAS
+   ========================================================= */
+function renderBookings(){
+  const a=S.active;
+  document.getElementById('bookingsBody').innerHTML=`
+    ${a?`<div class="sec-title" style="margin-top:0">Activa</div>
+    <button class="card row" style="width:100%;text-align:left;border-color:var(--navy)" onclick="go('ticket')">
+      <div class="avatar" style="border-radius:12px;background:var(--navy);color:#fff">${icon('qr',22)}</div>
+      <div style="flex:1;min-width:0"><b class="small">${a.spot.name}</b><div class="xs muted">${hhmm(a.start)} – ${hhmm(a.end)} · ${a.code}</div></div>
+      <span class="chev">${icon('chev',18)}</span>
+    </button>`:''}
+    <div class="sec-title" ${a?'':'style="margin-top:0"'}>Historial</div>
+    <div class="stack">
+      ${S.history.map(h=>`<div class="card row">
+        <div class="avatar" style="border-radius:12px">${icon('garage',20)}</div>
+        <div style="flex:1;min-width:0"><b class="small">${h.spot.name}</b><div class="xs muted">${h.date} · ${h.hours} h · ${h.spot.dist}</div><div class="stars xs" style="margin-top:2px">${stars(h.rated)}</div></div>
+        <div style="text-align:right"><b class="small">${money(h.total)}</b><div><button class="xs bold" style="color:var(--navy);margin-top:6px" onclick="openSpot(${h.spot.id})">Repetir</button></div></div>
+      </div>`).join('')}
+    </div>
+    <div class="sec-title">Recomendado para ti</div>
+    <div class="card row" onclick="openSpot(12)" style="cursor:pointer">
+      <span style="color:var(--navy)">${icon('spark',22)}</span>
+      <div style="flex:1"><b class="small">Sueles estacionar en Jesús María los martes</b><div class="xs muted">Cochera Av. Cuba tiene 92% de disponibilidad a esa hora</div></div>
+      <span class="chev">${icon('chev',18)}</span>
+    </div>
+  `;
+}
+
+/* =========================================================
+   RECOMPENSAS
+   ========================================================= */
+function renderRewards(){
+  const lvl=S.points>=2000?['Oro',3000]:S.points>=1000?['Plata',2000]:['Bronce',1000];
+  const pct=Math.min(100,S.points/lvl[1]*100);
+  const items=[
+    ['clock','1 hora gratis','En cualquier cochera verificada',500],
+    ['fuel','S/ 10 en grifo aliado','Canjeable en estaciones afiliadas',800],
+    ['coffee','Café gratis','Cafeterías cerca de tu cochera',300],
+    ['wash','Lavado de auto 50%','Grifos y lavaderos aliados',1200],
+    ['crown','1 mes Premium','Todos los beneficios Premium',2500],
+  ];
+  document.getElementById('rewardsBody').innerHTML=`
+    <div class="points">
+      <div class="ring"></div>
+      <div class="xs" style="opacity:.7">Tus puntos</div>
+      <div class="num">${S.points.toLocaleString('es-PE')}</div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="xs" style="opacity:.8">Nivel ${lvl[0]} · ${Math.max(0,lvl[1]-S.points)} pts para el siguiente nivel</div>
+    </div>
+    <div class="stat3" style="margin-top:12px">
+      <div><b>${S.history.length+ (S.active?1:0)}</b><span>Reservas</span></div>
+      <div><b>3</b><span>Semanas seguidas</span></div>
+      <div><b>${S.premium?'2x':'1x'}</b><span>Multiplicador</span></div>
+    </div>
+    <div class="sec-title">Canjea</div>
+    <div class="stack">
+      ${items.map(([ic,t,d,c])=>`<div class="reward"><div class="ic">${icon(ic,20)}</div><div style="min-width:0"><b class="small">${t}</b><div class="xs muted">${d}</div></div><button class="cost ${S.points<c?'off':''}" onclick="redeem(${c},'${t}')">${c} pts</button></div>`).join('')}
+    </div>
+  `;
+}
+function redeem(c,t){
+  if(S.points<c) return toast('Te faltan '+(c-S.points)+' puntos','gift');
+  S.points-=c; renderRewards(); toast('Canjeaste: '+t,'gift');
+}
+
+/* =========================================================
+   PERFIL
+   ========================================================= */
+function renderProfile(){
+  const host=S.mode==='host';
+  document.getElementById('profileSub').textContent = host?'Cuenta de anfitrión':'Cuenta de conductor';
+  document.getElementById('profileBody').innerHTML=`
+    <div class="card row" style="margin-bottom:12px">
+      <div class="avatar" style="width:56px;height:56px;font-size:18px">${host?'LR':'KR'}</div>
+      <div style="flex:1"><b>${host?'Luis Ramírez':'Karina Rojas'}</b>
+        <div class="row" style="gap:6px;margin-top:4px">
+          <span class="badge verified">${icon('shield',12,2.2)}DNI validado</span>
+          ${S.premium&&!host?`<span class="badge amber">${icon('crown',12,2.2)}Premium</span>`:''}
+        </div>
+      </div>
+      <div style="text-align:right"><b>★ ${host?'4.8':'4.9'}</b><div class="xs muted">reputación</div></div>
+    </div>
+    ${host?'':`
+    <button class="premium-card" onclick="go('premium')">
+      <div class="avatar" style="background:rgba(255,255,255,.12);color:#fff">${icon('crown',22)}</div>
+      <div style="flex:1"><b>${S.premium?'Eres Premium':'Hazte Premium'}</b><div class="xs" style="opacity:.75">${S.premium?'Sin tarifa de servicio y 2x puntos':'Desde S/ 20 al mes · sin tarifa de servicio'}</div></div>
+      ${icon('chev',18)}
+    </button>`}
+    <div class="sec-title">Cuenta</div>
+    <div class="list">
+      ${host?`<div class="li">${icon('card',20)}Cuenta para depósitos<span class="chev small">BCP •••• 2210</span></div>`:
+      `<div class="li">${icon('car',20)}Mis vehículos<span class="chev small">ABC-123</span></div>
+       <div class="li">${icon('card',20)}Métodos de pago<span class="chev small">Yape, Visa</span></div>`}
+      <div class="li">${icon('phone',20)}Contactos de emergencia<span class="chev small">2</span></div>
+      <div class="li">${icon('bell',20)}Notificaciones<span class="switch on" onclick="this.classList.toggle('on')"></span></div>
+      <div class="li">${icon('doc',20)}Mis contratos digitales${icon('chev',16)}</div>
+    </div>
+    <div class="sec-title">Modo</div>
+    <div class="list">
+      <button onclick="switchMode()">${icon('swap',20)}<div><b>Cambiar a modo ${host?'conductor':'anfitrión'}</b><div class="xs muted">${host?'Busca y reserva cocheras':'Gana dinero con tu cochera'}</div></div><span class="chev">${icon('chev',16)}</span></button>
+      <button onclick="S.view='welcome';go('welcome')">${icon('logout',20)}Cerrar sesión</button>
+    </div>
+    <p class="xs muted" style="text-align:center;margin-top:20px">Estaciónate v1.0 · Demo con datos simulados</p>
+  `;
+}
+
+/* =========================================================
+   PREMIUM
+   ========================================================= */
+function renderPremium(){
+  const b=[
+    ['Sin tarifa de servicio','Ahorra en cada reserva'],
+    ['Reserva anticipada hasta 7 días','Asegura tu espacio para la semana'],
+    ['Acceso prioritario','Espacios exclusivos en zonas de alta demanda'],
+    ['Seguro ampliado','Mayor cobertura ante daños o robos'],
+    ['Puntos dobles','Sube de nivel el doble de rápido'],
+    ['Descuentos en comercios aliados','Grifos, lavaderos, cafeterías y clínicas'],
+  ];
+  document.getElementById('premiumBody').innerHTML=`
+    <div style="text-align:center;padding:4px 0 18px">
+      <div class="logo lg" style="margin:0 auto 12px;background:linear-gradient(135deg,#14284B,#2B4A7E)">${icon('crown',34)}</div>
+      <h2 style="font-size:22px;letter-spacing:-.02em">Estaciona sin pensarlo</h2>
+      <div class="small muted" style="margin-top:4px">Para quienes estacionan todas las semanas</div>
+    </div>
+    <div class="plan">
+      <div class="between"><b>Plan mensual</b><span class="badge green">Más elegido</span></div>
+      <div class="price" style="margin:6px 0 2px">S/ 20<span class="small muted" style="font-weight:600"> / mes</span></div>
+      <div class="xs muted">O S/ 300 al año (ahorras S/ 40)</div>
+      <div class="divider"></div>
+      ${b.map(([t,d])=>`<div class="benefit"><div class="ok" style="color:var(--green)">${icon('check',14,2.6)}</div><div><b class="small">${t}</b><div class="xs muted">${d}</div></div></div>`).join('')}
+    </div>
+    <button class="btn" style="margin-top:18px" onclick="togglePremium()">${S.premium?'Cancelar Premium':'Activar Premium'}</button>
+    <p class="xs muted" style="text-align:center;margin-top:10px">Cancela cuando quieras. Sin permanencia.</p>
+  `;
+}
+function togglePremium(){
+  S.premium=!S.premium; renderPremium();
+  toast(S.premium?'¡Bienvenida a Premium!':'Premium cancelado', S.premium?'crown':'check');
+}
+
+/* =========================================================
+   ANFITRIÓN
+   ========================================================= */
+function renderHost(){
+  const days=[['L',38],['M',52],['M',41],['J',66],['V',74],['S',29],['D',18]];
+  const max=Math.max(...days.map(d=>d[1]));
+  const today=(new Date().getDay()+6)%7;
+  const checks=[['Identidad (DNI) validada',1],['Fotos del espacio aprobadas',1],['Documento de propiedad o autorización',1],['5 reseñas de 4.5★ o más',0]];
+  const done=checks.filter(c=>c[1]).length;
+  document.getElementById('hostBody').innerHTML=`
+    <div class="earn">
+      <div class="between"><span class="small muted">Ingresos de noviembre</span><span class="badge green">+18% vs. oct.</span></div>
+      <div class="num">S/ 412.50</div>
+      <div class="xs muted">Neto, después de la comisión de 15% · próximo depósito el viernes</div>
+      <div class="bars">${days.map((d,i)=>`<div class="${i===today?'today':''}"><i style="height:${d[1]/max*100}%"></i><span>${d[0]}</span></div>`).join('')}</div>
+    </div>
+    <div class="stat3" style="margin-top:12px">
+      <div><b>68%</b><span>Ocupación</span></div>
+      <div><b>23</b><span>Reservas</span></div>
+      <div><b>★ 4.8</b><span>Reputación</span></div>
+    </div>
+
+    <div class="sec-title">Próximas llegadas</div>
+    <div class="stack" id="arrivals">
+      ${[['Karina R.','KR','Hoy 3:00 – 5:00 pm','ABC-123',4.9],['Diego M.','DM','Hoy 6:30 – 8:30 pm','BKT-904',4.7]].map(([n,i,t,p,r],k)=>`
+      <div class="card row">
+        <div class="avatar">${i}</div>
+        <div style="flex:1;min-width:0"><b class="small">${n} <span class="muted xs">★ ${r}</span></b><div class="xs muted">${t} · Placa ${p}</div></div>
+        <button class="chip" id="arr${k}" onclick="scanQR(${k})">${icon('qr',14)}Validar</button>
+      </div>`).join('')}
+    </div>
+
+    <div class="sec-title">Sello Espacio Verificado</div>
+    <div class="card">
+      <div class="between" style="margin-bottom:10px"><b class="small">Tu avance</b><b class="small" style="color:var(--green)">${done}/${checks.length}</b></div>
+      <div class="progress"><i style="width:${done/checks.length*100}%"></i></div>
+      <div style="margin-top:10px">
+        ${checks.map(([t,d])=>`<div class="checkitem ${d?'done':''}"><div class="c" style="color:#fff">${d?icon('check',12,3):''}</div><span class="${d?'':'muted'}">${t}</span></div>`).join('')}
+      </div>
+      <div class="xs muted" style="margin-top:8px">Los espacios verificados reciben hasta 3 veces más reservas.</div>
+    </div>
+
+    <div class="sec-title">Seguridad</div>
+    <div class="card row">
+      <span style="color:var(--navy)">${icon('shield',22)}</span>
+      <div style="flex:1"><b class="small">Contrato y seguro activos</b><div class="xs muted">Cada reserva queda respaldada por contrato digital y póliza de daños</div></div>
+    </div>
+  `;
+}
+function scanQR(k){
+  const b=document.getElementById('arr'+k);
+  b.innerHTML='<div class="spinner" style="border-color:rgba(20,40,75,.2);border-top-color:var(--navy);width:14px;height:14px"></div>Leyendo';
+  setTimeout(()=>{ b.className='chip on'; b.style.background='var(--green)'; b.style.borderColor='var(--green)'; b.innerHTML=icon('check',14,2.6)+'Ingresó'; toast('QR válido · Acceso registrado','qr'); },1100);
+}
+function renderHostSpaces(){
+  document.getElementById('hostSpacesBody').innerHTML=`
+    <div class="stack">
+      ${S.hostSpaces.map((h,i)=>`
+      <div class="card">
+        <div class="row">
+          <div class="avatar" style="border-radius:12px">${icon('garage',20)}</div>
+          <div style="flex:1;min-width:0"><b class="small">${h.name}</b><div class="xs muted">${h.dist} · ${money(h.price)}/h · ${h.bookings} reservas</div></div>
+          <span class="switch ${h.on?'on':''}" onclick="S.hostSpaces[${i}].on=!S.hostSpaces[${i}].on;renderHostSpaces();toast(S.hostSpaces[${i}].on?'Cochera visible en el mapa':'Cochera pausada','check')"></span>
+        </div>
+        <div class="divider"></div>
+        <div class="between xs"><span class="muted">${h.on?'Visible para conductores':'Pausada'}</span>${h.bookings>5?`<span class="badge verified">${icon('shield',12,2.2)}Verificado</span>`:`<span class="badge amber">En revisión</span>`}</div>
+      </div>`).join('')}
+    </div>
+    <button class="btn" style="margin-top:16px" onclick="go('hostNew')">${icon('plus',18)}Publicar otra cochera</button>
+    <div class="card row" style="margin-top:16px;background:var(--navy-soft);border-color:transparent">
+      <span style="color:var(--navy)">${icon('spark',22)}</span>
+      <div><b class="small">Consejo de la IA</b><div class="xs muted">La demanda en tu zona sube 40% entre 8 y 10 am. Activa disponibilidad temprano para ganar más.</div></div>
+    </div>
+  `;
+}
+document.querySelectorAll('#nType,#nSize').forEach(g=>g.addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c) return; g.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+}));
+document.getElementById('nDays').addEventListener('click',e=>{const c=e.target.closest('.chip'); c&&c.classList.toggle('on');});
+function publishSpace(){
+  const name=document.getElementById('nName').value.trim()||'Mi nueva cochera';
+  const dist=document.getElementById('nDist').value; const price=+document.getElementById('nPrice').value;
+  S.hostSpaces.push({id:Date.now(),name,dist,price,on:true,bookings:0});
+  const covered = document.querySelector('#nType .chip.on').textContent==='Techada';
+  SPOTS.push({id:Date.now(),name,host:'Luis R.',dist,addr:document.getElementById('nAddr').value||dist,lat:ME[0]+(Math.random()-.5)*.012,lng:ME[1]+(Math.random()-.5)*.012,price,rating:5.0,reviews:0,verified:false,free:1,covered,feat:[covered?'Techada':'Descubierta']});
+  ['nName','nAddr'].forEach(id=>document.getElementById(id).value=''); document.getElementById('nTerms').checked=false; document.getElementById('pubBtn').disabled=true;
+  go('hostSpaces'); toast('¡Publicada! Ya aparece en el mapa','check');
+}
+
+/* =========================================================
+   BOTÓN DE PÁNICO
+   ========================================================= */
+function openSOS(){
+  const m=document.getElementById('sosModal');
+  m.innerHTML=`
+    <div class="between"><b style="font-size:18px">Botón de pánico</b><button class="iconbtn" onclick="closeSOS()">${icon('close',18)}</button></div>
+    <p class="small muted" style="margin-top:6px;text-align:left">Mantén presionado 3 segundos. Enviaremos tu ubicación GPS a Serenazgo y a tus contactos de emergencia.</p>
+    <div class="sos-ring" id="sosRing">
+      <svg viewBox="0 0 170 170"><circle cx="85" cy="85" r="80" fill="none" stroke="#FDE8EE" stroke-width="8"/><circle id="sosArc" cx="85" cy="85" r="80" fill="none" stroke="#E11D48" stroke-width="8" stroke-linecap="round" stroke-dasharray="502.6" stroke-dashoffset="502.6"/></svg>
+      <button class="sos-btn pulse" id="sosBtn">SOS</button>
+    </div>
+    <div class="row" style="gap:10px">
+      <a class="btn ghost" href="tel:105" style="text-decoration:none">${icon('phone',18)}Policía 105</a>
+      <a class="btn ghost" href="tel:116" style="text-decoration:none">${icon('phone',18)}Bomberos 116</a>
+    </div>`;
+  document.getElementById('sosOverlay').classList.add('show');
+  const btn=document.getElementById('sosBtn'), arc=document.getElementById('sosArc');
+  let start, raf;
+  const step=t=>{ const p=Math.min(1,(t-start)/3000); arc.style.strokeDashoffset=502.6*(1-p); if(p<1) raf=requestAnimationFrame(step); else sosSent(); };
+  const down=e=>{ e.preventDefault(); start=performance.now(); raf=requestAnimationFrame(step); };
+  const up=()=>{ cancelAnimationFrame(raf); if(arc) arc.style.strokeDashoffset=502.6; };
+  btn.addEventListener('pointerdown',down);
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>btn.addEventListener(ev,up));
+}
+function sosSent(){
+  const where=S.active?S.active.spot.addr+', '+S.active.spot.dist:'Av. Arenales 1800, Lince';
+  document.getElementById('sosModal').innerHTML=`
+    <div class="avatar pulse" style="width:72px;height:72px;margin:6px auto 14px;background:var(--red);color:#fff">${icon('shield',34)}</div>
+    <b style="font-size:19px">Alerta enviada</b>
+    <p class="small muted" style="margin:6px 0 16px">Serenazgo recibió tu ubicación y una unidad fue notificada.</p>
+    <div class="card" style="text-align:left;margin-bottom:14px">
+      <div class="checkitem done"><div class="c" style="color:#fff">${icon('check',12,3)}</div><span class="small">Serenazgo notificado · tiempo estimado 6 min</span></div>
+      <div class="checkitem done"><div class="c" style="color:#fff">${icon('check',12,3)}</div><span class="small">Ubicación GPS compartida en vivo</span></div>
+      <div class="checkitem done"><div class="c" style="color:#fff">${icon('check',12,3)}</div><span class="small">2 contactos de emergencia avisados</span></div>
+      <div class="divider"></div>
+      <div class="row" style="gap:8px;align-items:flex-start"><span class="muted">${icon('pin',18)}</span><div class="small">${where}<br><span class="xs muted">${ME[0].toFixed(5)}, ${ME[1].toFixed(5)}</span></div></div>
+    </div>
+    <button class="btn ghost" onclick="closeSOS();toast('Alerta cancelada. Nos alegra que estés bien.','check')">Estoy a salvo · cancelar alerta</button>`;
+}
+function closeSOS(){ document.getElementById('sosOverlay').classList.remove('show'); }
+
+/* =========================================================
+   INICIO
+   ========================================================= */
+function updateClock(){ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit',hour12:false}); }
+updateClock(); setInterval(updateClock,30000);
+paintIcons();
+window.addEventListener('resize',()=>{ if(S.view==='map'){ map&&map.invalidateSize(); positionFabs(); } });
+</script>
+</body>
+</html>
